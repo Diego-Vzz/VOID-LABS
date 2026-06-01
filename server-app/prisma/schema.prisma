@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// --- 1. USUARIOS Y SEGURIDAD ---
+
+model void_users {
+  id       String @id @default(uuid())
+  email    String @unique @db.VarChar(250)
+  username String @unique @db.VarChar(16)
+  password String @db.VarChar(255)
+
+  discord_id      String?   @unique @db.VarChar(50) // Añadido para automatizaciones de n8n o bots
+  hwid            String?   @unique @db.VarChar(250)
+  last_hwid_reset DateTime?
+  last_ip         String?   @db.VarChar(45)
+  last_login      DateTime?
+
+  role       Role    @default(USER)
+  banned     Boolean @default(false)
+  ban_reason String? @db.VarChar(255)
+
+  // Relaciones Originales
+  subscriptions void_subscriptions[]
+  profiles      void_profiles[]
+
+  // NUEVAS RELACIONES (Web & Moderación)
+  tickets        void_tickets[]         @relation("UserTickets")
+  ticket_replies void_ticket_messages[] @relation("ClientTicketMessages")
+  hwid_requests  void_hwid_requests[]   @relation("HwidRequests")
+}
+
+enum Role {
+  USER // Cliente normal.
+  MEDIA // YouTubers / TikTokers / Streamers.
+  BETA // Testers de confianza (acceso a módulos experimentales).
+}
+
+// --- 2. SISTEMA DE PERFILES (CONFIGS) ---
+
+model void_profiles {
+  id      String     @id @default(uuid())
+  user_id String
+  user    void_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  name       String  @db.VarChar(50) // Ej: "Hypixel Legit"
+  is_default Boolean @default(false) // El perfil que carga al inyectar
+
+  configs void_module_config[]
+
+  @@unique([user_id, name]) // Un usuario no puede tener 2 perfiles con el mismo nombre
+}
+
+model void_module_config {
+  id         String  @id @default(uuid())
+  module     String  @db.VarChar(50)
+  profile_id String?
+
+  action     String @db.VarChar(20) // "enable" | "disable"
+  settings   Json
+  conditions Json   @default("[]")
+
+  profile        void_profiles?       @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  product_module void_product_modules @relation(fields: [module], references: [module], onDelete: Cascade)
+
+  @@unique([profile_id, module]) // Solo 1 config de AimAssist por Perfil
+}
+
+// --- 3. PRODUCTOS Y SUSCRIPCIONES (SaaS) ---
+
+enum ProductStatus {
+  WORKING
+  UPDATING
+  DETECTED
+}
+
+model void_products {
+  id             String        @id @default(uuid())
+  name           String        @db.VarChar(250) // Ej: "The Void - 30 Dias"
+  caption        String        @db.VarChar(250)
+  price          Float
+  status         ProductStatus @default(WORKING) // Killswitch global
+  features       Json          @default("[]")
+  duration_days  Int // Cuánto dura esta suscripción (ej: 30, 90, 9999 para lifetime)
+  is_popular     Boolean       @default(false)
+  view_info_path String
+
+  modules       void_product_pivot[]
+  subscriptions void_subscriptions[]
+}
+
+model void_subscriptions {
+  id         String @id @default(uuid())
+  user_id    String
+  product_id String
+
+  user    void_users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  product void_products @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  active     Boolean  @default(true)
+  starts_at  DateTime @default(now())
+  expires_at DateTime // Cuando llegue esta fecha, el cheat deja de inyectar
+
+  @@index([user_id])
+}
+
+model void_product_modules {
+  id     String  @id @default(uuid())
+  module String  @unique @db.VarChar(50) // Ej: "aim-assists"
+  active Boolean @default(true)
+
+  products void_product_pivot[]
+
+  configurations void_module_config[]
+}
+
+model void_product_pivot {
+  product_id String
+  module_id  String
+
+  product void_products        @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  module  void_product_modules @relation(fields: [module_id], references: [id], onDelete: Cascade)
+
+  @@id([product_id, module_id])
+}
+
+// --- 4. FLUJO DE LOGIN WEB & PANEL DE CONTROL ---
+
+model void_hwid_bindings {
+  id         String   @id @default(uuid())
+  temp_hwid  String   @db.VarChar(255)
+  created_at DateTime @default(now())
+  expires_at DateTime
+}
+
+enum SystemRole {
+  SUPERADMIN
+  BOT_N8N // Rol exclusivo para automatizaciones
+}
+
+model void_system_users {
+  id       String @id @default(uuid())
+  username String @unique @db.VarChar(16)
+  email    String @unique @db.VarChar(250)
+  password String @db.VarChar(255)
+
+  api_token String?    @unique @db.VarChar(255) // Token estático para autenticar a n8n
+  role      SystemRole @default(BOT_N8N)
+  active    Boolean    @default(true)
+
+  last_ip    String?   @db.VarChar(45)
+  last_login DateTime?
+
+  news           void_news[]
+  audit_logs     void_audit_logs[]      @relation("AdminAuditLogs")
+  ticket_replies void_ticket_messages[] @relation("SystemTicketMessages")
+}
+
+// A. Sistema de Noticias y Changelogs (Dashboard)
+
+model void_news {
+  id         String   @id @default(uuid())
+  user_id    String
+  title      String   @db.VarChar(250)
+  content    String   @db.Text // Soporta Markdown o HTML
+  is_pinned  Boolean  @default(false) // Para fijar noticias importantes arriba
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  author void_system_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+// B. Sistema de Soporte (Tickets)
+
+enum TicketStatus {
+  OPEN
+  ANSWERED
+  CLOSED
+}
+
+model void_tickets {
+  id         String       @id @default(uuid())
+  user_id    String
+  subject    String       @db.VarChar(250)
+  status     TicketStatus @default(OPEN)
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt
+
+  user     void_users             @relation("UserTickets", fields: [user_id], references: [id], onDelete: Cascade)
+  messages void_ticket_messages[]
+}
+
+model void_ticket_messages {
+  id        String @id @default(uuid())
+  ticket_id String
+
+  // Integridad relacional correcta para polimorfismo simulado
+  user_id        String? // Si no es nulo, lo envió el cliente
+  system_user_id String? // Si no es nulo, lo enviaste tú o el bot de n8n
+
+  message    String   @db.Text
+  created_at DateTime @default(now())
+
+  ticket      void_tickets       @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  user        void_users?        @relation("ClientTicketMessages", fields: [user_id], references: [id], onDelete: Cascade)
+  system_user void_system_users? @relation("SystemTicketMessages", fields: [system_user_id], references: [id], onDelete: Cascade)
+}
+
+// C. Peticiones de Reset de HWID (Seguridad)
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model void_hwid_requests {
+  id         String        @id @default(uuid())
+  user_id    String
+  reason     String        @db.VarChar(500) // "Compré una PC nueva", "Formateé Windows"
+  status     RequestStatus @default(PENDING)
+  handled_by String? // ID del Moderador (tu system_user ID) o el de n8n
+  created_at DateTime      @default(now())
+  updated_at DateTime      @updatedAt
+
+  user void_users @relation("HwidRequests", fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+// D. Auditoría de Seguridad (Audit Logs)
+
+model void_audit_logs {
+  id         String   @id @default(uuid())
+  user_id    String // El Admin/Bot que ejecutó la acción
+  target_id  String? // El usuario afectado (opcional)
+  action     String   @db.VarChar(100) // Ej: "BAN_USER", "APPROVE_HWID", "CREATE_NEWS"
+  details    String?  @db.Text // Detalles extra en JSON stringificado
+  ip_address String?  @db.VarChar(45)
+  created_at DateTime @default(now())
+
+  admin void_system_users @relation("AdminAuditLogs", fields: [user_id], references: [id], onDelete: Cascade)
+}
