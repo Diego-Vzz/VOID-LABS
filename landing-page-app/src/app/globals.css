@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght,MONO@0,300..800,1;1,300..800,1&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
+@import "tailwindcss";
+
+@layer base {
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    height: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+
+    min-height: 100dvh;
+    width: 100%;
+
+    background-color: #111111;
+    color: #90A1B9;
+
+    overflow-x: hidden;
+
+    font-family: "Google Sans", sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+    font-variation-settings: "GRAD" 0;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  .theme-input-text {
+    @apply w-full text-sm text-white placeholder-zinc-600 px-3 py-2.5 bg-[#0A0A0C] border border-zinc-800 rounded-lg transition-all duration-200 outline-none focus:bg-[#121214] focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 disabled:opacity-50 disabled:cursor-default;
+  }
+
+  .theme-button-submit {
+    @apply w-full bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 font-medium text-sm p-2.5 rounded-lg transition-colors mt-2 flex justify-center items-center disabled:opacity-70 cursor-pointer disabled:cursor-default
+  }
+}
+
+.google-sans-code {
+  font-family: "Google Sans Code", monospace;
+  font-optical-sizing: auto;
+  font-style: normal;
+  font-variation-settings:
+    "MONO" 1;
+}

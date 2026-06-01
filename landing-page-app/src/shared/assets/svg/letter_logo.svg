@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 50" width="100%" height="100%" role="img" aria-label="Void Cloud Logo">
+  
+  <style>
+    /* Estructura minimalista y animaciones CSS */
+    .vc-glow { filter: url(#smoothGlow); }
+    
+    .vc-stroke {
+      fill: none;
+      stroke: url(#chromaBluePurple);
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    
+    /* Texto ajustado para no ocupar espacio excesivo */
+    .vc-text {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: 24px;
+      font-weight: 500;
+      letter-spacing: 8px;
+      text-anchor: middle;
+      stroke-width: 1.5;
+    }
+  </style>
+
+  <defs>
+    <linearGradient id="chromaBluePurple" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%">
+        <animate attributeName="stop-color" 
+                 values="#00E5FF; #2979FF; #651FFF; #D500F9; #00E5FF" 
+                 dur="6s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="50%">
+        <animate attributeName="stop-color" 
+                 values="#651FFF; #D500F9; #00E5FF; #2979FF; #651FFF" 
+                 dur="6s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="100%">
+        <animate attributeName="stop-color" 
+                 values="#D500F9; #00E5FF; #2979FF; #651FFF; #D500F9" 
+                 dur="6s" repeatCount="indefinite" />
+      </stop>
+    </linearGradient>
+
+    <filter id="smoothGlow" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="3" result="blur1" />
+      <feGaussianBlur stdDeviation="8" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <g class="vc-glow">
+    <text x="150" y="32" class="vc-stroke vc-text">VOID LABS</text>
+  </g>
+</svg>
